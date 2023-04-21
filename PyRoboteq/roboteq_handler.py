@@ -25,7 +25,7 @@ class RoboteqHandler:
         self.port = port
         self.baudrate = baudrate
         
-        if self.debug_mode == True:
+        if self.debug_mode:
             print(f"DEBUG MODE: {self.debug_mode}")
             print(f"EXIT ON INTERRUPT: {self.exit_on_interrupt}")
             time.sleep(1)
@@ -44,7 +44,7 @@ class RoboteqHandler:
             self.is_alive = True
 
         except Exception as e:
-            if self.debug_mode == True:
+            if self.debug_mode:
                 print("DEBUG MODE: ERROR: Failed to connect to the roboteq device, read the exception error below:")
                 print(e)
                 print("\n")
@@ -59,16 +59,16 @@ class RoboteqHandler:
         """
         raw_command = f"{str_command}+\r"
         try:
-            if self.debug_mode == True:
+            if self.debug_mode:
                 print(f"DEBUG MODE: Tx:{raw_command}")
             self.ser.write(raw_command.encode())
 
         except Exception as e:
-            if self.debug_mode == True:
+            if self.debug_mode:
                 print("DEBUG MODE: Failed to send command to the controller, read the exception error below:")
                 print(e)
                 print("\n")
-            if self.exit_on_interrupt == True:
+            if self.exit_on_interrupt:
                 quit()
         
     def request_handler(self, request: str = "") -> str:
@@ -81,15 +81,15 @@ class RoboteqHandler:
                 try:
                     raw_data = serial.read_all()
                 except Exception as e:
-                    if self.debug_mode == True:
+                    if self.debug_mode:
                         print("DEBUG MODE: Failed to read from the controller, read the exception error below:")
                         print(e)
                         print("\n")
-                    if self.exit_on_interrupt == True:
+                    if self.exit_on_interrupt:
                         quit()
                     raw_data = b' '
             
-            if self.debug_mode == True:
+            if self.debug_mode:
                 print(f"DEBUG MODE: Rx:{raw_data}")
             return raw_data
 
@@ -102,9 +102,9 @@ class RoboteqHandler:
         
         except IndexError: # will raise index error as sometimes the controller will return an odd answer, its rare, so its simply ignored.
             debug_return = "DEBUG MODE: Received faulty message, ignoring..."
-            if self.exit_on_interrupt == True:
+            if self.exit_on_interrupt:
                 quit()
-            if self.debug_mode == True:
+            if self.debug_mode:
                 print(debug_return)
             return debug_return
 
@@ -120,22 +120,17 @@ class RoboteqHandler:
         self.request_handler(raw_command)
     
     def send_command(self, command: str, first_parameter = "", second_parameter = "") -> None:
-        if first_parameter != "" and second_parameter != "":
-            message = f"{command} {first_parameter} {second_parameter} "
-        if first_parameter != "" and second_parameter == "":
-            message = f"{command} {first_parameter} "
-        if first_parameter == "" and second_parameter == "":
-            message = f"{command} "
-        
+        message = f"{command} {first_parameter} {second_parameter}".strip()
+
         try:
             response = self.request_handler(message)
         except Exception as e:
-            if self.debug_mode == True:
+            if self.debug_mode:
                 print("DEBUG MODE: Failed to construct a message, read the exception error below:")
                 print(e)
                 print(f"Received message: {response}")
                 print("\n")
-            if self.exit_on_interrupt == True:
+            if self.exit_on_interrupt:
                 quit()
 
     def read_value(self, command: str = "", parameter = "") -> str:
