@@ -1,5 +1,9 @@
 import serial
 import time
+try:
+    import roboteq_ros.PyRoboteq.roboteq_21_commands as cmd
+except ModuleNotFoundError:
+    from . import roboteq_21_commands as cmd
 # message
 class RoboteqHandler:
     """
@@ -36,9 +40,7 @@ class RoboteqHandler:
                 baudrate = self.baudrate,
                 parity = serial.PARITY_NONE,
                 stopbits = serial.STOPBITS_ONE,
-                bytesize= serial.EIGHTBITS,
-                timeout = 0.1,
-                write_timeout = 1
+                bytesize= serial.EIGHTBITS
             )
             if self.ser.isOpen():
                 self.ser.close()
@@ -54,12 +56,12 @@ class RoboteqHandler:
             
         return self.is_alive
 
-    def send_raw_command(self, str_command: str = "") -> None:
+    def send_raw_string(self, str_command: str = "") -> None:
         """
         Send a raw string command, the library will handle sending the command, but how you write it
         is up to you.
         """
-        raw_command = f"{str_command}\r"
+        raw_command = f"{str_command}+\r"
         try:
             if self.debug_mode:
                 print(f"DEBUG MODE: Tx:{raw_command}")
@@ -72,26 +74,8 @@ class RoboteqHandler:
                 print("\n")
             if self.exit_on_interrupt:
                 quit()
-
-    def read_line(self) -> str:
-        """
-        Reads a line from the controller, the line is terminated with a carriage return (\r)
-        """
-        try:
-            raw_data = self.ser.read_until(b'\r')
-            if self.debug_mode:
-                print(f"DEBUG MODE: Rx:{raw_data}")
-            return raw_data.decode()
-        except Exception as e:
-            if self.debug_mode:
-                print("DEBUG MODE: Failed to read from the controller, read the exception error below:")
-                print(e)
-                print("\n")
-            if self.exit_on_interrupt:
-                quit()
-            return ""
-
         
+
     def request_handler(self, request: str = "") -> str:
         """
         Sends a command and a parameter, 
@@ -100,8 +84,7 @@ class RoboteqHandler:
             raw_data = b''
             while raw_data == b'':
                 try:
-                    #raw_data = serial.read_all()
-                    raw_data = serial.read_until(b'\r')
+                    raw_data = serial.read_all()
                 except Exception as e:
                     if self.debug_mode:
                         print("DEBUG MODE: Failed to read from the controller, read the exception error below:")
@@ -114,17 +97,11 @@ class RoboteqHandler:
             if self.debug_mode:
                 print(f"DEBUG MODE: Rx:{raw_data}")
             return raw_data
-        #self.ser.read_all()
-        self.send_raw_command(request)
+
+        self.send_raw_string(request)
         result = get_data(self.ser)
-        # print result in purple
-        print("\033[95m {}\033[00m" .format(result))
         result = result.decode()
-        # print result in blue
-        print("\033[94m {}\033[00m" .format(result))
-        #result = result.split("\r")
-        # print result in green
-        #print("\033[92m {}\033[00m" .format(result))
+        result = result.split("\r")
         try:
             return result[1]
         
@@ -136,29 +113,17 @@ class RoboteqHandler:
                 print(debug_return)
             return debug_return
 
-    def dual_motor_control(self, left_motor: int = 0, right_motor: int = 0) -> None:
-        """
-        Controlling the motor using a Dual Drive mode
-        Send speed for the left, and right side of the robot/vehicle seperately 
-        Effective for doing Pivot drive and running track based robots
-        left_motor: integer from -1000 to 1000
-        right_motor: integer from -1000 to 1000
-        """
-        raw_command = f"!M {left_motor} {right_motor} "
-        self.request_handler(raw_command)
-    
+
     def send_command(self, command: str, first_parameter = "", second_parameter = "") -> None:
-        message = f"{command} {first_parameter} {second_parameter}".strip()
+        message = f"{command} {first_parameter} {second_parameter}"
 
         try:
-            # serial read all
-            self.ser.read_all()
-            response = self.request_handler(message)
+            self.send_raw_string(message)
         except Exception as e:
             if self.debug_mode:
                 print("DEBUG MODE: Failed to construct a message, read the exception error below:")
                 print(e)
-                print(f"Received message: {response}")
+                print(f"Received exception: {e}")
                 print("\n")
             if self.exit_on_interrupt:
                 quit()
@@ -170,6 +135,22 @@ class RoboteqHandler:
         param: parameter (str/int)
         returns: answer from the controller, data from request commands, or echo from action commands.
         """
-        request = f"{command} {parameter}"
+        request = f"{command} [{parameter}]"
         response = self.request_handler(request)
         return response
+
+    def set_motor1_position(self, position: int) -> None:
+        """
+        Set the position of motor 1.
+        :param position: Absolute count destination for motor 1, signed 32-bit integer from -2147M to +2147M.
+        """
+        command = f"{cmd.GO_TO_ABS_POS} 1 {position}"
+        self.send_command_request(command)
+
+    def set_motor2_position(self, position: int) -> None:
+        """
+        Set the position of motor 2.
+        :param position: Absolute count destination for motor 2, signed 32-bit integer from -2147M to +2147M.
+        """
+        command = f"{cmd.GO_TO_ABS_POS} 2 {position}"
+        self.send_command_request(command)

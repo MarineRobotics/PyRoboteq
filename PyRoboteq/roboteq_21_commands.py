@@ -134,3 +134,7 @@ RESET_CONTROLLER = "%RESET"                 # Reset Controller
 SCRIPT_LOAD = "%SLD"                        # Script Load
 SET_TIME = "%STIME"                         # Set Time
 UNLOCK_CONFIG_ACCESS = "%UK"                # Unlock Configuration Access
+
+
+# General and Safety Confiurations
+ECHO_ENABLE_DISABLE = "^ECHOF"              # Enable/Disable serial echo. 1: Disable, 0: Enable
