@@ -1,7 +1,16 @@
 import serial
 import time
-import roboteq_ros.PyRoboteq.roboteq_21_commands as cmd
+from . import config
+
+try:
+    import roboteq_ros.PyRoboteq.roboteq_21_commands as cmd
+except ModuleNotFoundError:
+    from . import roboteq_21_commands as cmd
 # message
+
+USB = False
+# USB = true
+
 class RoboteqHandler:
     """
     Create a roboteq device object for communication, read the README for more information
@@ -32,17 +41,20 @@ class RoboteqHandler:
             time.sleep(1)
 
         try: # attempt to create a serial object and check its status
-            self.ser = serial.Serial(
-                port = self.port,
-                baudrate = self.baudrate,
-                parity = serial.PARITY_NONE,
-                stopbits = serial.STOPBITS_ONE,
-                bytesize= serial.EIGHTBITS
-            )
-            if self.ser.isOpen():
-                self.ser.close()
-            self.ser.open()
-            self.is_alive = True
+            if USB:
+                self.ser = serial.Serial(
+                    port = self.port,
+                    baudrate = self.baudrate,
+                    parity = serial.PARITY_NONE,
+                    stopbits = serial.STOPBITS_ONE,
+                    bytesize= serial.EIGHTBITS
+                )
+                if self.ser.isOpen():
+                    self.ser.close()
+                self.ser.open()
+                self.is_alive = True
+            else:
+                self.ser = config.config(dev = self.port, Baudrate = self.baudrate)
 
         except Exception as e:
             if self.debug_mode:
@@ -58,11 +70,15 @@ class RoboteqHandler:
         Send a raw string command, the library will handle sending the command, but how you write it
         is up to you.
         """
-        raw_command = f"{str_command}+\r"
+        # NOTE: this has changed
+        #raw_command = f"{str_command}+\r"
+        raw_command = f"{str_command}\r"
         try:
             if self.debug_mode:
                 print(f"DEBUG MODE: Tx:{raw_command}")
-            self.ser.write(raw_command.encode())
+            # NOTE: THIS HAS CHANGED
+            #self.ser.write(raw_command.encode())
+            self.ser.Uart_SendString(raw_command)
 
         except Exception as e:
             if self.debug_mode:
@@ -81,7 +97,9 @@ class RoboteqHandler:
             raw_data = b''
             while raw_data == b'':
                 try:
-                    raw_data = serial.read_all()
+                    # NOTE: THIS HAS CHANGED
+                    #raw_data = serial.read_all()
+                    raw_data = serial.Uart_ReceiveLine()
                 except Exception as e:
                     if self.debug_mode:
                         print("DEBUG MODE: Failed to read from the controller, read the exception error below:")
@@ -97,10 +115,15 @@ class RoboteqHandler:
 
         self.send_raw_string(request)
         result = get_data(self.ser)
+        # print result in purple
+        #print("\033[95m {}\033[00m" .format(result))
         result = result.decode()
-        result = result.split("\r")
+        # print result in blue
+        #print("\033[94m {}\033[00m" .format(result))
+        #result = result.split("\r")
+        #print("\033[93m {}\033[00m" .format(result))
         try:
-            return result[1]
+            return result
         
         except IndexError: # will raise index error as sometimes the controller will return an odd answer, its rare, so its simply ignored.
             debug_return = "DEBUG MODE: Received faulty message, ignoring..."
@@ -132,7 +155,7 @@ class RoboteqHandler:
         param: parameter (str/int)
         returns: answer from the controller, data from request commands, or echo from action commands.
         """
-        request = f"{command} [{parameter}]"
+        request = f"{command} {parameter}"
         response = self.request_handler(request)
         return response
 
